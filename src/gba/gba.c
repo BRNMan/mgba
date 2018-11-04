@@ -775,7 +775,7 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 60 == 0) {
-		printPokemonValues(gba);
+		printPokemonValues(gba, 0);
 	}
 	GBATestKeypadIRQ(gba);
 
@@ -788,38 +788,39 @@ void GBAFrameStarted(struct GBA* gba) {
 	}
 }
 
-void printPokemonValues(struct GBA* gba) {
+void printPokemonValues(struct GBA* gba, int pokeNumber) {
 		struct ARMCore* cpu = gba->cpu;
-		int personality_value = GBAView32(cpu, 0x02024284);
-		int ot_id = GBAView32(cpu, 0x02024288);
+		int base = 0x02024284 + pokeNumber*100;
+		int personality_value = GBAView32(cpu, base + 0);
+		int ot_id = GBAView32(cpu, base + 4);
 		unsigned char nickname[10];
 		for(int i = 0; i < 10; i++) {
-			nickname[i] = GBAView8(cpu, 0x0202428C + i);
+			nickname[i] = GBAView8(cpu, base + 8 + i);
 		}
-		char language = GBAView16(cpu, 0x02024296);
+		char language = GBAView16(cpu, base + 18);
 		char otName[7];
 		for(int i = 0; i < 7; i++) {
-			otName[i] = GBAView8(cpu, 0x02024298 + i);
+			otName[i] = GBAView8(cpu, base + 20 + i);
 		}
-		char markings = GBAView8(cpu, 0x0202429F);
-		int16_t checksum = GBAView16(cpu, 0x020242A0);
-		int16_t unknownData = GBAView16(cpu, 0x020242A2);
+		char markings = GBAView8(cpu, base + 27);
+		int16_t checksum = GBAView16(cpu, base + 28);
+		int16_t unknownData = GBAView16(cpu, base + 30);
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
-		char encryptedData[48];
+		unsigned char encryptedData[48];
 		for(int i = 0; i < 48; i++) {
-			encryptedData[i] = GBAView8(cpu, 0x020242A4 + i);
+			encryptedData[i] = GBAView8(cpu, base + 32 + i);
 		}
-		char status = GBAView8(cpu, 0x020242D4);
-		char level = GBAView8(cpu, 0x020242D8);
-		char pokerusRemaining = GBAView8(cpu, 0x020242D9);
-		int16_t curHP = GBAView16(cpu, 0x020242DA);
-		int16_t totalHP = GBAView16(cpu, 0x020242DC);
-		int16_t attack = GBAView16(cpu, 0x020242DE);
-		int16_t defense = GBAView16(cpu, 0x020242E0);
-		int16_t speed = GBAView16(cpu, 0x020242E2);
-		int16_t spatk = GBAView16(cpu, 0x020242E4);
-		int16_t spdef = GBAView16(cpu, 0x020242E6);
+		char status = GBAView8(cpu, base + 80);
+		char level = GBAView8(cpu, base + 84);
+		char pokerusRemaining = GBAView8(cpu, base + 85);
+		int16_t curHP = GBAView16(cpu, base + 86);
+		int16_t totalHP = GBAView16(cpu, base + 88);
+		int16_t attack = GBAView16(cpu, base + 90);
+		int16_t defense = GBAView16(cpu, base + 92);
+		int16_t speed = GBAView16(cpu, base + 94);
+		int16_t spatk = GBAView16(cpu, base + 96);
+		int16_t spdef = GBAView16(cpu, base + 98);
 		printf("nickname bytes: ");
 		for(int i = 0; i < 10; i++) {
 			printf("%02x ", nickname[i]);
