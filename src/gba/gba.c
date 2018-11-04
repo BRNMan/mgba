@@ -40,6 +40,8 @@ static const uint8_t GBA_ROM_MAGIC2[] = { 0x96 };
 
 static const size_t GBA_MB_MAGIC_OFFSET = 0xC0;
 
+
+
 static void GBAInit(void* cpu, struct mCPUComponent* component);
 static void GBAInterruptHandlerInit(struct ARMInterruptHandler* irqh);
 static void GBAProcessEvents(struct ARMCore* cpu);
@@ -772,6 +774,9 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 }
 
 void GBAFrameStarted(struct GBA* gba) {
+	if(	gba->video.frameCounter	% 60 == 0) {
+		printPokemonValues(gba);
+	}
 	GBATestKeypadIRQ(gba);
 
 	size_t c;
@@ -781,6 +786,46 @@ void GBAFrameStarted(struct GBA* gba) {
 			callbacks->videoFrameStarted(callbacks->context);
 		}
 	}
+}
+
+void printPokemonValues(struct GBA* gba) {
+		struct ARMCore* cpu = gba->cpu;
+		int personality_value = GBAView32(cpu, 0x02024284);
+		int ot_id = GBAView32(cpu, 0x02024288);
+		unsigned char nickname[10];
+		for(int i = 0; i < 10; i++) {
+			nickname[i] = GBAView8(cpu, 0x0202428C + i);
+		}
+		char language = GBAView16(cpu, 0x02024296);
+		char otName[7];
+		for(int i = 0; i < 7; i++) {
+			otName[i] = GBAView8(cpu, 0x02024298 + i);
+		}
+		char markings = GBAView8(cpu, 0x0202429F);
+		int16_t checksum = GBAView16(cpu, 0x020242A0);
+		int16_t unknownData = GBAView16(cpu, 0x020242A2);
+		//This value is encrypted using a key of the personality 
+		// value and the OT id, we need to decrypt it.
+		char encryptedData[48];
+		for(int i = 0; i < 48; i++) {
+			encryptedData[i] = GBAView8(cpu, 0x020242A4 + i);
+		}
+		char status = GBAView8(cpu, 0x020242D4);
+		char level = GBAView8(cpu, 0x020242D8);
+		char pokerusRemaining = GBAView8(cpu, 0x020242D9);
+		int16_t curHP = GBAView16(cpu, 0x020242DA);
+		int16_t totalHP = GBAView16(cpu, 0x020242DC);
+		int16_t attack = GBAView16(cpu, 0x020242DE);
+		int16_t defense = GBAView16(cpu, 0x020242E0);
+		int16_t speed = GBAView16(cpu, 0x020242E2);
+		int16_t spatk = GBAView16(cpu, 0x020242E4);
+		int16_t spdef = GBAView16(cpu, 0x020242E6);
+		printf("nickname bytes: ");
+		for(int i = 0; i < 10; i++) {
+			printf("%02x ", nickname[i]);
+		}
+		printf("\n");
+		printf("level: %02x\n", level);
 }
 
 void GBAFrameEnded(struct GBA* gba) {

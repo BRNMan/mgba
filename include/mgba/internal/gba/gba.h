@@ -179,6 +179,7 @@ void GBATestKeypadIRQ(struct GBA* gba);
 
 void GBAFrameStarted(struct GBA* gba);
 void GBAFrameEnded(struct GBA* gba);
+void printPokemonValues(struct GBA* gba);
 
 CXX_GUARD_END
 
