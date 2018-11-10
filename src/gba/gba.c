@@ -25,6 +25,8 @@
 #include <mgba-util/elf-read.h>
 #endif
 
+#include<fcntl.h> 
+
 #define GBA_IRQ_DELAY 7
 
 mLOG_DEFINE_CATEGORY(GBA, "GBA", "gba");
@@ -68,6 +70,8 @@ void GBACreate(struct GBA* gba) {
 }
 
 static void GBAInit(void* cpu, struct mCPUComponent* component) {
+	//Sets stdin to non-blocking
+	fcntl(0, F_SETFL, O_NONBLOCK);
 	struct GBA* gba = (struct GBA*) component;
 	gba->cpu = cpu;
 	gba->debugger = 0;
@@ -773,33 +777,21 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 	}
 }
 
-struct PokemonData {
-	int personality_value;
-	int ot_id;
-	char nickname[10];
-	unsigned char language;
-	char otName[7];
-	unsigned char markings;
-	int16_t checksum;
-	int16_t unknownData;
-	unsigned char encryptedData[48];
-	unsigned char status;
-	unsigned char level;
-	unsigned char pokerusRemaining;
-	int16_t curHP;
-	int16_t totalHP;
-	int16_t attack;
-	int16_t defense;
-	int16_t speed;
-	int16_t spatk;
-	int16_t spdef;
-};
 
 void GBAFrameStarted(struct GBA* gba) {
-	if(	gba->video.frameCounter	% 60 == 0) {
-		for(int i = 0; i < 6; i++) {
-			printPokemonValues(gba, 0);
+	if(	gba->video.frameCounter	% 120 == 0) {
+		char buf[256];
+		//printPokemonValues(gba, 0);
+		int retVal = read(0, buf, 100); 
+		if(retVal == -1) {
+		} else {
+			struct PokemonData pokeData = getPokemonData(gba, 0);	
+			printf("%d\n", pokeData.level);
+			for(int i = 1; i < 6; i++) {
+				setPokemonData(gba, i, pokeData);
+			}
 		}
+		
 	}
 	GBATestKeypadIRQ(gba);
 
@@ -812,7 +804,7 @@ void GBAFrameStarted(struct GBA* gba) {
 	}
 }
 
-struct PokemonData printPokemonValues(struct GBA* gba, int pokeNumber) {
+struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		struct ARMCore* cpu = gba->cpu;
 		struct PokemonData pokeData;
 		int base = 0x02024284 + pokeNumber*100;
@@ -845,14 +837,42 @@ struct PokemonData printPokemonValues(struct GBA* gba, int pokeNumber) {
 		pokeData.attack = GBAView16(cpu, base + 90);
 		pokeData.defense = GBAView16(cpu, base + 92);
 		pokeData.speed = GBAView16(cpu, base + 94);
-		pokeData.spatk = GBAView16(cpu, base + 96);
-		pokeData.spdef = GBAView16(cpu, base + 98);
-		printf("nickname bytes: ");
+		pokeData.spatk = GBAView16(cpu, base + 96);	
+		return pokeData;	
+}
+
+void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData) {
+		struct ARMCore* cpu = gba->cpu;
+		int base = 0x02024284 + pokeNumber*100;
+		GBAStore32(cpu, base + 0, pokeData.personality_value, 0);
+		GBAStore32(cpu, base + 4, pokeData.ot_id, 0);
+
 		for(int i = 0; i < 10; i++) {
-			printf("%02x ", pokeData.nickname[i]);
+			GBAStore8(cpu, base + 8 + i, pokeData.nickname[i], 0);
 		}
-		printf("\n");
-		printf("level: %02x\n", pokeData.level);
+		GBAStore16(cpu, base + 18, pokeData.language, 0);
+
+		for(int i = 0; i < 7; i++) {
+			GBAStore8(cpu, base + 20 + i, pokeData.otName[i], 0);
+		}
+		GBAStore8(cpu, base + 27, pokeData.markings, 0);
+		GBAStore16(cpu, base + 28, pokeData.checksum, 0);
+		GBAStore16(cpu, base + 30, pokeData.unknownData, 0);
+		//This value is encrypted using a key of the personality 
+		// value and the OT id, we need to decrypt it.
+		for(int i = 0; i < 48; i++) {
+			GBAStore8(cpu, base + 32 + i, pokeData.encryptedData[i], 0);
+		}
+		GBAStore8(cpu, base + 80, pokeData.status, 0);
+		GBAStore8(cpu, base + 84, pokeData.level, 0);
+
+		GBAStore8(cpu, base + 85, pokeData.pokerusRemaining, 0);
+		GBAStore16(cpu, base + 86, pokeData.curHP, 0);
+		GBAStore16(cpu, base + 88, pokeData.totalHP, 0);
+		GBAStore16(cpu, base + 90, pokeData.attack, 0);
+		GBAStore16(cpu, base + 92, pokeData.defense, 0);
+		GBAStore16(cpu, base + 94, pokeData.speed, 0);
+		GBAStore16(cpu, base + 96, pokeData.spatk, 0);	
 }
 
 void GBAFrameEnded(struct GBA* gba) {

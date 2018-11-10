@@ -179,7 +179,32 @@ void GBATestKeypadIRQ(struct GBA* gba);
 
 void GBAFrameStarted(struct GBA* gba);
 void GBAFrameEnded(struct GBA* gba);
-void printPokemonValues(struct GBA* gba, int pokeNumber);
+
+struct PokemonData {
+	int personality_value;
+	int ot_id;
+	char nickname[10];
+	unsigned char language;
+	char otName[7];
+	unsigned char markings;
+	int16_t checksum;
+	int16_t unknownData;
+	unsigned char encryptedData[48];
+	unsigned char status;
+	unsigned char level;
+	unsigned char pokerusRemaining;
+	int16_t curHP;
+	int16_t totalHP;
+	int16_t attack;
+	int16_t defense;
+	int16_t speed;
+	int16_t spatk;
+	int16_t spdef;
+};
+
+
+struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber);
+void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData);
 
 CXX_GUARD_END
 
