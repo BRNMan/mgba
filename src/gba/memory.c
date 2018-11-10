@@ -1658,7 +1658,6 @@ void GBAPrintFlush(struct GBA* gba) {
 		++gba->memory.agbPrintCtx.get;
 	}
 	_agbPrintStore(gba, AGB_PRINT_STRUCT + 4, gba->memory.agbPrintCtx.get);
-
 	mLOG(GBA_DEBUG, INFO, "%s", oolBuf);
 }
 

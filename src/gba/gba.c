@@ -773,9 +773,33 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 	}
 }
 
+struct PokemonData {
+	int personality_value;
+	int ot_id;
+	char nickname[10];
+	unsigned char language;
+	char otName[7];
+	unsigned char markings;
+	int16_t checksum;
+	int16_t unknownData;
+	unsigned char encryptedData[48];
+	unsigned char status;
+	unsigned char level;
+	unsigned char pokerusRemaining;
+	int16_t curHP;
+	int16_t totalHP;
+	int16_t attack;
+	int16_t defense;
+	int16_t speed;
+	int16_t spatk;
+	int16_t spdef;
+};
+
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 60 == 0) {
-		printPokemonValues(gba, 0);
+		for(int i = 0; i < 6; i++) {
+			printPokemonValues(gba, 0);
+		}
 	}
 	GBATestKeypadIRQ(gba);
 
@@ -788,45 +812,47 @@ void GBAFrameStarted(struct GBA* gba) {
 	}
 }
 
-void printPokemonValues(struct GBA* gba, int pokeNumber) {
+struct PokemonData printPokemonValues(struct GBA* gba, int pokeNumber) {
 		struct ARMCore* cpu = gba->cpu;
+		struct PokemonData pokeData;
 		int base = 0x02024284 + pokeNumber*100;
-		int personality_value = GBAView32(cpu, base + 0);
-		int ot_id = GBAView32(cpu, base + 4);
-		unsigned char nickname[10];
+		pokeData.personality_value = GBAView32(cpu, base + 0);
+		pokeData.ot_id = GBAView32(cpu, base + 4);
+
 		for(int i = 0; i < 10; i++) {
-			nickname[i] = GBAView8(cpu, base + 8 + i);
+			pokeData.nickname[i] = GBAView8(cpu, base + 8 + i);
 		}
-		char language = GBAView16(cpu, base + 18);
-		char otName[7];
+		pokeData.language = GBAView16(cpu, base + 18);
+
 		for(int i = 0; i < 7; i++) {
-			otName[i] = GBAView8(cpu, base + 20 + i);
+			pokeData.otName[i] = GBAView8(cpu, base + 20 + i);
 		}
-		char markings = GBAView8(cpu, base + 27);
-		int16_t checksum = GBAView16(cpu, base + 28);
-		int16_t unknownData = GBAView16(cpu, base + 30);
+		pokeData.markings = GBAView8(cpu, base + 27);
+		pokeData.checksum = GBAView16(cpu, base + 28);
+		pokeData.unknownData = GBAView16(cpu, base + 30);
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
-		unsigned char encryptedData[48];
 		for(int i = 0; i < 48; i++) {
-			encryptedData[i] = GBAView8(cpu, base + 32 + i);
+			pokeData.encryptedData[i] = GBAView8(cpu, base + 32 + i);
 		}
-		char status = GBAView8(cpu, base + 80);
-		char level = GBAView8(cpu, base + 84);
-		char pokerusRemaining = GBAView8(cpu, base + 85);
-		int16_t curHP = GBAView16(cpu, base + 86);
-		int16_t totalHP = GBAView16(cpu, base + 88);
-		int16_t attack = GBAView16(cpu, base + 90);
-		int16_t defense = GBAView16(cpu, base + 92);
-		int16_t speed = GBAView16(cpu, base + 94);
-		int16_t spatk = GBAView16(cpu, base + 96);
-		int16_t spdef = GBAView16(cpu, base + 98);
+		pokeData.status = GBAView8(cpu, base + 80);
+		pokeData.level = GBAView8(cpu, base + 84);
+		//To change level to 100, use the GBAStoreX function
+		//GBAStore8(cpu, base + 84, 100, 0);
+		pokeData.pokerusRemaining = GBAView8(cpu, base + 85);
+		pokeData.curHP = GBAView16(cpu, base + 86);
+		pokeData.totalHP = GBAView16(cpu, base + 88);
+		pokeData.attack = GBAView16(cpu, base + 90);
+		pokeData.defense = GBAView16(cpu, base + 92);
+		pokeData.speed = GBAView16(cpu, base + 94);
+		pokeData.spatk = GBAView16(cpu, base + 96);
+		pokeData.spdef = GBAView16(cpu, base + 98);
 		printf("nickname bytes: ");
 		for(int i = 0; i < 10; i++) {
-			printf("%02x ", nickname[i]);
+			printf("%02x ", pokeData.nickname[i]);
 		}
 		printf("\n");
-		printf("level: %02x\n", level);
+		printf("level: %02x\n", pokeData.level);
 }
 
 void GBAFrameEnded(struct GBA* gba) {
