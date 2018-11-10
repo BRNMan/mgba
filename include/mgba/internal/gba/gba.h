@@ -181,8 +181,8 @@ void GBAFrameStarted(struct GBA* gba);
 void GBAFrameEnded(struct GBA* gba);
 
 struct PokemonData {
-	int personality_value;
-	int ot_id;
+	unsigned int personality_value;
+	unsigned int ot_id;
 	char nickname[10];
 	unsigned char language;
 	char otName[7];
