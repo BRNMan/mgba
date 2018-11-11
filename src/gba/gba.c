@@ -898,13 +898,9 @@ void printPokemonValues(struct GBA* gba, int pokeNumber) {
 		//get decryption key by xoring personality value and otID
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;
 		
-		
-		printf("Sub section = %i\n", (pokeData.personality_value)% 24);
-		//printf("Sub section = %i\n", (pokeData.personality_value)% 24);
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
 		printf("The species number is: %i\n",getSpecies(&pokeData, offset));
 		printf("The experience is: %i\n",getExperience(&pokeData, offset));
-		//printf("growth offset = %i\n", offset);
 		
 }
 
