@@ -1,3 +1,4 @@
+
 /* Copyright (c) 2013-2015 Jeffrey Pfau
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -40,6 +41,9 @@ static const uint8_t GBA_ROM_MAGIC2[] = { 0x96 };
 
 static const size_t GBA_MB_MAGIC_OFFSET = 0xC0;
 
+
+//temporary global variables
+int pokemonHasLoaded = 0;
 
 
 static void GBAInit(void* cpu, struct mCPUComponent* component);
@@ -774,7 +778,7 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 }
 
 struct PokemonData {
-	int personality_value;
+	unsigned int personality_value;
 	int ot_id;
 	char nickname[10];
 	unsigned char language;
@@ -793,13 +797,48 @@ struct PokemonData {
 	int16_t speed;
 	int16_t spatk;
 	int16_t spdef;
+
+	//decrypt data
+	int decryptKey;
+	//pers = A722 4E34, OTID = E5E3 D8DD, xor should be 42C1 96E9
+
+};
+
+//enum for the 24 possible substructure orders, G = growth, A = action, E = EV, M = Misc
+enum dataOrder{
+
+	GAEM = 0,
+	GAME = 1,
+	GEAM = 2,
+	GEMA = 3,
+	GMAE = 4,
+	GMEA = 5,
+	AGEM = 6,
+	AGME = 7,
+	AEGM = 8,
+	AEMG = 9,
+	AMGE = 10,
+	AMEG = 11,
+	EGAM = 12,
+	EGMA = 13,
+	EAGM = 14,
+	EAMG = 15,
+	EMGA = 16,
+	EMAG = 17,
+	MGAE = 18,
+	MGEA = 19,
+	MAGE = 20,
+	MAEG = 21,
+	MEGA = 22,
+	MEAG = 23
+	//4
 };
 
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 60 == 0) {
-		for(int i = 0; i < 6; i++) {
+		//for(int i = 0; i < 6; i++) {
 			printPokemonValues(gba, 0);
-		}
+		//}
 	}
 	GBATestKeypadIRQ(gba);
 
@@ -812,8 +851,9 @@ void GBAFrameStarted(struct GBA* gba) {
 	}
 }
 
-struct PokemonData printPokemonValues(struct GBA* gba, int pokeNumber) {
+void printPokemonValues(struct GBA* gba, int pokeNumber) {
 		struct ARMCore* cpu = gba->cpu;
+		
 		struct PokemonData pokeData;
 		int base = 0x02024284 + pokeNumber*100;
 		pokeData.personality_value = GBAView32(cpu, base + 0);
@@ -847,12 +887,109 @@ struct PokemonData printPokemonValues(struct GBA* gba, int pokeNumber) {
 		pokeData.speed = GBAView16(cpu, base + 94);
 		pokeData.spatk = GBAView16(cpu, base + 96);
 		pokeData.spdef = GBAView16(cpu, base + 98);
-		printf("nickname bytes: ");
+		
+		/*printf("nickname bytes: ");
 		for(int i = 0; i < 10; i++) {
 			printf("%02x ", pokeData.nickname[i]);
 		}
 		printf("\n");
-		printf("level: %02x\n", pokeData.level);
+		printf("level: %02x\n", pokeData.level); */
+
+		//get decryption key by xoring personality value and otID
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;
+		
+		
+		printf("Sub section = %i\n", (pokeData.personality_value)% 24);
+		//printf("Sub section = %i\n", (pokeData.personality_value)% 24);
+		int offset = getGrowthOffset((pokeData.personality_value)% 24);
+		printf("The species number is: %i\n",getSpecies(&pokeData, offset));
+		printf("The experience is: %i\n",getExperience(&pokeData, offset));
+		//printf("growth offset = %i\n", offset);
+		
+}
+
+//finds and returns the species after decrypting it 
+int getSpecies(struct PokemonData *pokeData, int offset){
+		
+	//species is bytes 0 and 1 of the section
+	//item held is bytes 2 and 3
+	
+	//convert the individual char bytes to the 4 byte int value for the decryption
+	int fourBytes = 0;
+	fourBytes = fourBytes + (pokeData->encryptedData[offset + 3])*16*16*16*16*16*16;
+	fourBytes += (pokeData->encryptedData[offset + 2])*16*16*16*16;
+	fourBytes += (pokeData->encryptedData[offset + 1])*16*16;
+	fourBytes += (pokeData->encryptedData[offset]);
+	
+	//decrypt with the key and return
+	return (fourBytes ^ pokeData->decryptKey);
+}
+
+//finds and returns the species after decrypting it
+int getExperience(struct PokemonData *pokeData, int offset){
+
+	//species is bytes 4-7 of the section
+	
+	//convert the individual char bytes to the 4 byte int value for the decryption
+	int fourBytes = 0;
+	fourBytes = fourBytes + (pokeData->encryptedData[offset + 7])*16*16*16*16*16*16;
+	fourBytes += (pokeData->encryptedData[offset + 6])*16*16*16*16;
+	fourBytes += (pokeData->encryptedData[offset + 5])*16*16;
+	fourBytes += (pokeData->encryptedData[offset + 4]);
+	
+	//decrypt with the key and return
+	return fourBytes ^ pokeData->decryptKey;
+
+}
+
+//as of right now just deal with growth section
+int getGrowthOffset(int dataSectionNum){
+	
+	//offset variable for where the growth section is in the data
+	//offset is in bytes
+	int offset = 0;
+
+	//switch case for the section
+	switch (dataSectionNum){
+		
+		//Growth is second section
+		case 5:
+		case 6:
+		case 12:
+		case 13:
+		case 18:
+		case 19:
+			offset = 12;
+			break;
+		
+		//Growth is third section
+		case 8:
+		case 10:
+		case 14:
+		case 16:
+		case 20:
+		case 22:
+			offset = 24;
+			break;
+			
+		//Growth is fourth section
+		case 9:
+		case 11:
+		case 15:
+		case 17:
+		case 21:
+		case 23:
+			offset = 36;
+			break;
+		
+		//case 0-5 not needed, already offset 0
+		default:
+			//do nothing
+		 	break;
+	}
+
+	return offset;
+
 }
 
 void GBAFrameEnded(struct GBA* gba) {
