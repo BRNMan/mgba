@@ -834,8 +834,11 @@ void GBAFrameStarted(struct GBA* gba) {
 		
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
-			//species 9 for now
-			changeSpecies(cpu, base, offset, 9, &pokeData);
+			//AS OF NOW - running both of these causes a bad egg
+			//species 9 for now 
+			//changeSpecies(cpu, base, offset, 9, &pokeData);
+			changeExperience(cpu, base, offset, 226, &pokeData);
+			
 		}
 
 	
@@ -932,6 +935,30 @@ void changeSpecies(struct ARMCore* cpu, int base, int offset, int level, struct 
 
 		//change checksum value to match the change
 		GBAStore16(cpu, base - 4, (pokeData->checksum) + change, 0);
+}
+
+/*
+	working with the growth data, base is the start of the encrypted data, 
+	offset is start of growth of growth section. NewXP is the new experience to change to
+*/
+void changeExperience(struct ARMCore* cpu, int base, int offset, int newXP, struct PokemonData *pokeData) {
+
+
+		//get the experience
+		int exp = getSpeciesOrExperience(pokeData, offset, 0);
+		printf("exp = %i\n",exp);
+		int change = newXP - exp;
+		
+		printf("change = %i\n", change);
+		//xor back to the decrypted
+		int decXP = newXP ^ (pokeData->decryptKey);
+		
+		//change decrypted data to match
+		GBAStore32(cpu, base + offset + 4, decXP, 0);
+
+		//change checksum value to match the change
+		GBAStore16(cpu, base - 4, (pokeData->checksum) + change, 0);		
+
 }
 
 void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData) {
