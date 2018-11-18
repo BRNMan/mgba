@@ -844,7 +844,7 @@ void GBAFrameStarted(struct GBA* gba) {
 		int i;
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
-			growthWork(cpu, base, offset, &pokeData);
+			growthWork(cpu, base, offset, 9, &pokeData);
 		}
 		
 		//rest of the encrypted data
@@ -924,29 +924,21 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 }
 
 //working with the growth data, base is base + 32 , offset is start of growth
-void growthWork(struct ARMCore* cpu, int base, int offset, struct PokemonData *pokeData) {
+void growthWork(struct ARMCore* cpu, int base, int offset, int level, struct PokemonData *pokeData) {
 
 		//get the species
 		int species = getSpeciesOrExperience(pokeData, offset, 1);
-		
-		//for right now add 1
-		species++;
 
-		//change checksum to match
-		
-		
+		int change = level - species;	
 		
 		//xor back to the decrypted
-		int decSpec = species ^ (pokeData->decryptKey);
+		int decSpec = level ^ (pokeData->decryptKey);
 		
 		//change decrypted data to match
 		GBAStore16(cpu, base + offset, decSpec, 0);
-		//GBAStore16(cpu, base + offset, 0x96e1, 0);
-		printf("Old checksum: %i\n",pokeData->checksum);
-		//printf("Semi Old checksum: %i\n",++(pokeData->checksum));
-		printf("new checksum: %i\n",pokeData->checksum + 1);
-		GBAStore16(cpu, base - 4, pokeData->checksum + 1, 0);
-		//GBAStore16(cpu, base - 4, 0x8613, 0);
+
+		//change checksum value to match the change
+		GBAStore16(cpu, base - 4, (pokeData->checksum) + change, 0);
 }
 
 void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData) {
@@ -984,7 +976,7 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		int i;
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
-			growthWork(cpu, base + 32, offset, &pokeData);
+			growthWork(cpu, base + 32, offset, 9, &pokeData);
 		}
 		
 		//rest of the encrypted data
