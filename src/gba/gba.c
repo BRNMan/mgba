@@ -55,6 +55,8 @@ static void GBAHitStub(struct ARMCore* cpu, uint32_t opcode);
 static void GBAIllegal(struct ARMCore* cpu, uint32_t opcode);
 static void GBABreakpoint(struct ARMCore* cpu, int immediate);
 
+int getSpeciesOrExperience(struct PokemonData *pokeData, int offset, bool species);
+
 static void _triggerIRQ(struct mTiming*, void* user, uint32_t cyclesLate);
 
 #ifdef USE_DEBUGGERS
@@ -887,8 +889,8 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;
 		
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
-		printf("The species number is: %i\n",getSpecies(&pokeData, offset));
-		printf("The experience is: %i\n",getExperience(&pokeData, offset));
+		printf("The species number is: %i\n",getSpeciesOrExperience(&pokeData, offset, 1));
+		printf("The experience is: %i\n",getSpeciesOrExperience(&pokeData, offset,0));
 			
 		return pokeData;	
 }
@@ -910,6 +912,9 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		GBAStore8(cpu, base + 27, pokeData.markings, 0);
 		GBAStore16(cpu, base + 28, pokeData.checksum, 0);
 		GBAStore16(cpu, base + 30, pokeData.unknownData, 0);
+
+
+
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
 		for(int i = 0; i < 48; i++) {
@@ -929,11 +934,13 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		
 }
 
-//finds and returns the species after decrypting it 
-int getSpecies(struct PokemonData *pokeData, int offset){
-		
-	//species is bytes 0 and 1 of the section
-	//item held is bytes 2 and 3
+//void setSpeciesOrExperience(
+
+//finds and returns the species or experience after decrypting it
+int getSpeciesOrExperience(struct PokemonData *pokeData, int offset, bool species){
+
+	//experience is bytes 4-7 of the section
+	if (!species) offset += 4;	
 	
 	//convert the individual char bytes to the 4 byte int value for the decryption
 	int fourBytes = 0;
@@ -941,22 +948,6 @@ int getSpecies(struct PokemonData *pokeData, int offset){
 	fourBytes += (pokeData->encryptedData[offset + 2])*16*16*16*16;
 	fourBytes += (pokeData->encryptedData[offset + 1])*16*16;
 	fourBytes += (pokeData->encryptedData[offset]);
-	
-	//decrypt with the key and return
-	return (fourBytes ^ pokeData->decryptKey);
-}
-
-//finds and returns the species after decrypting it
-int getExperience(struct PokemonData *pokeData, int offset){
-
-	//species is bytes 4-7 of the section
-	
-	//convert the individual char bytes to the 4 byte int value for the decryption
-	int fourBytes = 0;
-	fourBytes = fourBytes + (pokeData->encryptedData[offset + 7])*16*16*16*16*16*16;
-	fourBytes += (pokeData->encryptedData[offset + 6])*16*16*16*16;
-	fourBytes += (pokeData->encryptedData[offset + 5])*16*16;
-	fourBytes += (pokeData->encryptedData[offset + 4]);
 	
 	//decrypt with the key and return
 	return fourBytes ^ pokeData->decryptKey;
