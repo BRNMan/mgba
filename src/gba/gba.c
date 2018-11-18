@@ -15,6 +15,7 @@
 #include <mgba/internal/gba/io.h>
 #include <mgba/internal/gba/overrides.h>
 #include <mgba/internal/gba/rr/rr.h>
+#include <mgba/internal/gba/ToASCII.h>
 
 #include <mgba-util/patch.h>
 #include <mgba-util/crc32.h>
@@ -26,7 +27,8 @@
 #include <mgba-util/elf-read.h>
 #endif
 
-#include<fcntl.h> 
+#include <fcntl.h> 
+#include <string.h>
 
 #define GBA_IRQ_DELAY 7
 
@@ -78,6 +80,7 @@ void GBACreate(struct GBA* gba) {
 static void GBAInit(void* cpu, struct mCPUComponent* component) {
 	//Sets stdin to non-blocking
 	fcntl(0, F_SETFL, O_NONBLOCK);
+	addToMap();
 	struct GBA* gba = (struct GBA*) component;
 	gba->cpu = cpu;
 	gba->debugger = 0;
@@ -783,7 +786,6 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 	}
 }
 
-
 //enum for the 24 possible substructure orders, G = growth, A = action, E = EV, M = Misc
 enum dataOrder{
 
@@ -813,20 +815,97 @@ enum dataOrder{
 	MEAG = 23
 };
 
-
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 120 == 0) {
 		char buf[256];
-		int retVal = read(0, buf, 100); 
+		int retVal = read(0, buf, 100);
+		char *outputString = ""; 
 		if(retVal == -1) {
 		} else {
-			struct PokemonData pokeData = getPokemonData(gba, 0);				
-			
+			//Tokenize input string
+			char *token;
+
+			token = strtok(buf, " \n");
+			if(!strcmp(token, "set")) {
+				char *pokeIndexStr = strtok(0, " \n");
+				char *pokeKeyStr = strtok(0, " \n");
+				char *pokeValueStr = strtok(0, " \n");
+				if(!strcmp(pokeIndexStr, "all")) {
+					struct PokemonData pokeData = getPokemonData(gba, 0);
+					for(int i = 0; i < 6; i++) {
+						setPokemonData(gba, i, pokeData);
+					}	
+				} else {
+					int pokeIndex = atoi(pokeIndexStr);
+					struct PokemonData pokeData = getPokemonData(gba, 0);
+					printf("%s, %s, %s, %s\n", token, pokeIndexStr, pokeKeyStr, pokeValueStr);	
+					if(!strcmp(pokeKeyStr, "language")) {
+						pokeData.language = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "markings")) {
+						pokeData.markings = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "status")) {
+						pokeData.status = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "level")) {
+						pokeData.level = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "pokerus")) {
+						pokeData.pokerusRemaining = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "curhp")) {
+						pokeData.curHP = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "totalhp")) {
+						pokeData.totalHP = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "attack")) {
+						pokeData.attack = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "defense")) {
+						pokeData.defense = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "speed")) {
+						pokeData.speed = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "spatk")) {
+						pokeData.spatk = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "spdef")) {
+						pokeData.spdef = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "nickname")) {
+						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+						for(int i = 0; i < strlen(pokeValueStr); i++) {
+							pokeData.nickname[i] = *(tempName + i);
+						}
+					} else if(!strcmp(pokeKeyStr, "otname")) {
+						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+						for(int i = 0; i < strlen(pokeValueStr); i++) {
+							pokeData.otName[i] = *(tempName + i);
+						}
+					} else {
+						
+					}
+
+					setPokemonData(gba, pokeIndex, pokeData);	
+				}
+			} else if (!strcmp(token,"get")) {
+				struct PokemonData pokeData = getPokemonData(gba, 0);
+				outputString = (char *)malloc(20*sizeof(char));
+				sprintf(outputString, "level: %d\n", pokeData.level);
+				//outputString = printPokemonData();
+			} else if (!strcmp(token, "help")) {
+				outputString = "Commands:\n\
+get [pokemon_number]\n\
+set [pokemon_number] [key] [value]\n\
+help\n\
+pokemon numbers (choose 1): all, 0, 1, 2, 3, 4, 5\n\
+keys: level, species, nickname, etc.\n";
+			} else {
+				outputString = "Invalid command\n";
+			}
+		}
+		printf("%s", outputString);
+		
+		//Alex stuff below
+		
+		struct PokemonData pokeData = getPokemonData(gba, 0);	
+		
 		/******** This might be temporary? This is for growth */
 		//get decryption key by xoring personality value and otID
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
-		printf("offset = %i\n", offset);
+
 		struct ARMCore* cpu = gba->cpu;
 		int base = 0x02024284 + 32;
 
@@ -847,7 +926,6 @@ void GBAFrameStarted(struct GBA* gba) {
 				setPokemonData(gba, i, pokeData);
 		} 
 		*/
-	}
 	
 	}
 	GBATestKeypadIRQ(gba);
@@ -899,18 +977,11 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		pokeData.speed = GBAView16(cpu, base + 94);
 
 		pokeData.spatk = GBAView16(cpu, base + 96);
-		pokeData.spdef = GBAView16(cpu, base + 98);
-
-
-		printf("\n");
-		printf("level: %02x\n", pokeData.level); 
+		pokeData.spdef = GBAView16(cpu, base + 98); 
 
 		//get decryption key by xoring personality value and otID
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
-		
-		printf("The species number is: %i\n",getSpeciesOrExperience(&pokeData, offset, 1));
-		printf("The experience is: %i\n",getSpeciesOrExperience(&pokeData, offset,0));
 			
 		return pokeData;	
 }
@@ -946,10 +1017,9 @@ void changeExperience(struct ARMCore* cpu, int base, int offset, int newXP, stru
 
 		//get the experience
 		int exp = getSpeciesOrExperience(pokeData, offset, 0);
-		printf("exp = %i\n",exp);
+
 		int change = newXP - exp;
-		
-		printf("change = %i\n", change);
+	
 		//xor back to the decrypted
 		int decXP = newXP ^ (pokeData->decryptKey);
 		
@@ -994,7 +1064,7 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
 			//species 9 for now
-			changeSpecies(cpu, base + 32, offset, 9, &pokeData);
+			//changeSpecies(cpu, base + 32, offset, 9, &pokeData);
 		}
 		
 		//rest of the encrypted data
