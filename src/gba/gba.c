@@ -25,7 +25,8 @@
 #include <mgba-util/elf-read.h>
 #endif
 
-#include<fcntl.h> 
+#include <fcntl.h> 
+#include <string.h>
 
 #define GBA_IRQ_DELAY 7
 
@@ -777,20 +778,78 @@ void GBABreakpoint(struct ARMCore* cpu, int immediate) {
 	}
 }
 
-
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 120 == 0) {
 		char buf[256];
 		//printPokemonValues(gba, 0);
-		int retVal = read(0, buf, 100); 
+		int retVal = read(0, buf, 100);
+		char *outputString = ""; 
 		if(retVal == -1) {
 		} else {
-			struct PokemonData pokeData = getPokemonData(gba, 0);	
-			printf("%d\n", pokeData.level);
-			for(int i = 1; i < 6; i++) {
-				setPokemonData(gba, i, pokeData);
+			//Tokenize input string
+			char *token;
+
+			token = strtok(buf, " \n");
+			if(!strcmp(token, "set")) {
+				char *pokeIndexStr = strtok(0, " \n");
+				char *pokeKeyStr = strtok(0, " \n");
+				char *pokeValueStr = strtok(0, " \n");
+				if(!strcmp(pokeIndexStr, "all")) {
+					struct PokemonData pokeData = getPokemonData(gba, 0);
+					for(int i = 0; i < 6; i++) {
+						setPokemonData(gba, i, pokeData);
+					}	
+				} else {
+					int pokeIndex = atoi(pokeIndexStr);
+					struct PokemonData pokeData = getPokemonData(gba, 0);
+					printf("%s, %s, %s, %s\n", token, pokeIndexStr, pokeKeyStr, pokeValueStr);	
+					if(!strcmp(pokeKeyStr, "language")) {
+						pokeData.language = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "markings")) {
+						pokeData.markings = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "status")) {
+						pokeData.status = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "level")) {
+						pokeData.level = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "pokerus")) {
+						pokeData.pokerusRemaining = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "curhp")) {
+						pokeData.curHP = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "totalhp")) {
+						pokeData.totalHP = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "attack")) {
+						pokeData.attack = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "defense")) {
+						pokeData.defense = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "speed")) {
+						pokeData.speed = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "spatk")) {
+						pokeData.spatk = atoi(pokeValueStr);
+					} else if(!strcmp(pokeKeyStr, "spdef")) {
+						pokeData.spdef = atoi(pokeValueStr);
+					}  else {
+						
+					}
+
+					setPokemonData(gba, pokeIndex, pokeData);	
+				}
+			} else if (!strcmp(token,"get")) {
+				struct PokemonData pokeData = getPokemonData(gba, 0);
+				outputString = (char *)malloc(20*sizeof(char));
+				sprintf(outputString, "level: %d\n", pokeData.level);
+				//outputString = printPokemonData();
+			} else if (!strcmp(token, "help")) {
+				outputString = "Commands:\n\
+get [pokemon_number]\n\
+set [pokemon_number] [key] [value]\n\
+help\n\
+pokemon numbers (choose 1): all, 0, 1, 2, 3, 4, 5\n\
+keys: level, species, nickname, etc.\n";
+			} else {
+				outputString = "Invalid command\n";
 			}
 		}
+		printf("%s", outputString);
 		
 	}
 	GBATestKeypadIRQ(gba);
