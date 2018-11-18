@@ -200,6 +200,8 @@ struct PokemonData {
 	int16_t speed;
 	int16_t spatk;
 	int16_t spdef;
+
+	int decryptKey;
 };
 
 
