@@ -811,52 +811,41 @@ enum dataOrder{
 	MAEG = 21,
 	MEGA = 22,
 	MEAG = 23
-	//4
 };
 
 
 void GBAFrameStarted(struct GBA* gba) {
 	if(	gba->video.frameCounter	% 120 == 0) {
 		char buf[256];
-		//printPokemonValues(gba, 0);
 		int retVal = read(0, buf, 100); 
 		if(retVal == -1) {
 		} else {
-			struct PokemonData pokeData = getPokemonData(gba, 0);	
+			struct PokemonData pokeData = getPokemonData(gba, 0);				
 			
-			
-			
-			/******** This might be temporary? This is for growth */
+		/******** This might be temporary? This is for growth */
 		//get decryption key by xoring personality value and otID
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
-	printf("offset = %i\n", offset);
+		printf("offset = %i\n", offset);
 		struct ARMCore* cpu = gba->cpu;
 		int base = 0x02024284 + 32;
-		
-		
-		//loop through encrypted data until growth section
-
-		//This value is encrypted using a key of the personality 
-		// value and the OT id, we need to decrypt it.
-		for(int i = 0; i < offset; i++);
 
 		int i;
+		
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
-			growthWork(cpu, base, offset, 9, &pokeData);
+			//species 9 for now
+			changeSpecies(cpu, base, offset, 9, &pokeData);
 		}
-		
-		//rest of the encrypted data
-		for (i = offset + 12; i < 48; i++);			
-			
-			
-		}
-		/*
+
+	
+		/* TO DO - get change species to work with the clones 
 		for(int i = 1; i < 6; i++) {
 				setPokemonData(gba, i, pokeData);
-			} */
-		
+		} 
+		*/
+	}
+	
 	}
 	GBATestKeypadIRQ(gba);
 
@@ -890,6 +879,7 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		pokeData.markings = GBAView8(cpu, base + 27);
 		pokeData.checksum = GBAView16(cpu, base + 28);
 		pokeData.unknownData = GBAView16(cpu, base + 30);
+		
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
 		for(int i = 0; i < 48; i++) {
@@ -897,8 +887,7 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		}
 		pokeData.status = GBAView8(cpu, base + 80);
 		pokeData.level = GBAView8(cpu, base + 84);
-		//To change level to 100, use the GBAStoreX function
-		//GBAStore8(cpu, base + 84, 100, 0);
+
 		pokeData.pokerusRemaining = GBAView8(cpu, base + 85);
 		pokeData.curHP = GBAView16(cpu, base + 86);
 		pokeData.totalHP = GBAView16(cpu, base + 88);
@@ -914,17 +903,21 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		printf("level: %02x\n", pokeData.level); 
 
 		//get decryption key by xoring personality value and otID
-		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;
-		
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
+		
 		printf("The species number is: %i\n",getSpeciesOrExperience(&pokeData, offset, 1));
 		printf("The experience is: %i\n",getSpeciesOrExperience(&pokeData, offset,0));
 			
 		return pokeData;	
 }
 
-//working with the growth data, base is base + 32 , offset is start of growth
-void growthWork(struct ARMCore* cpu, int base, int offset, int level, struct PokemonData *pokeData) {
+/*
+	working with the growth data, base is the start of the encrypted data, 
+	offset is start of growth of growth section. Level is the new species 
+	level to change to
+*/
+void changeSpecies(struct ARMCore* cpu, int base, int offset, int level, struct PokemonData *pokeData) {
 
 		//get the species
 		int species = getSpeciesOrExperience(pokeData, offset, 1);
@@ -964,9 +957,6 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
 		int offset = getGrowthOffset((pokeData.personality_value)% 24);
 
-		
-		//loop through encrypted data until growth section
-
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
 		for(int i = 0; i < offset; i++) {
@@ -976,7 +966,8 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		int i;
 		//work with the growth section
 		for(i = offset; i < offset + 12; i++){
-			growthWork(cpu, base + 32, offset, 9, &pokeData);
+			//species 9 for now
+			changeSpecies(cpu, base + 32, offset, 9, &pokeData);
 		}
 		
 		//rest of the encrypted data
@@ -996,8 +987,6 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		GBAStore16(cpu, base + 96, pokeData.spatk, 0);	
 		
 }
-
-//void setSpeciesOrExperience(
 
 //finds and returns the species or experience after decrypting it
 int getSpeciesOrExperience(struct PokemonData *pokeData, int offset, bool species){
