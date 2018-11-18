@@ -823,11 +823,39 @@ void GBAFrameStarted(struct GBA* gba) {
 		if(retVal == -1) {
 		} else {
 			struct PokemonData pokeData = getPokemonData(gba, 0);	
-			printf("%d\n", pokeData.level);
-			for(int i = 1; i < 6; i++) {
-				setPokemonData(gba, i, pokeData);
-			}
+			
+			
+			
+			/******** This might be temporary? This is for growth */
+		//get decryption key by xoring personality value and otID
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+		int offset = getGrowthOffset((pokeData.personality_value)% 24);
+	printf("offset = %i\n", offset);
+		struct ARMCore* cpu = gba->cpu;
+		int base = 0x02024284 + 32;
+		
+		
+		//loop through encrypted data until growth section
+
+		//This value is encrypted using a key of the personality 
+		// value and the OT id, we need to decrypt it.
+		for(int i = 0; i < offset; i++);
+
+		int i;
+		//work with the growth section
+		for(i = offset; i < offset + 12; i++){
+			growthWork(cpu, base, offset, &pokeData);
 		}
+		
+		//rest of the encrypted data
+		for (i = offset + 12; i < 48; i++);			
+			
+			
+		}
+		/*
+		for(int i = 1; i < 6; i++) {
+				setPokemonData(gba, i, pokeData);
+			} */
 		
 	}
 	GBATestKeypadIRQ(gba);
@@ -895,6 +923,32 @@ struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber) {
 		return pokeData;	
 }
 
+//working with the growth data, base is base + 32 , offset is start of growth
+void growthWork(struct ARMCore* cpu, int base, int offset, struct PokemonData *pokeData) {
+
+		//get the species
+		int species = getSpeciesOrExperience(pokeData, offset, 1);
+		
+		//for right now add 1
+		species++;
+
+		//change checksum to match
+		
+		
+		
+		//xor back to the decrypted
+		int decSpec = species ^ (pokeData->decryptKey);
+		
+		//change decrypted data to match
+		GBAStore16(cpu, base + offset, decSpec, 0);
+		//GBAStore16(cpu, base + offset, 0x96e1, 0);
+		printf("Old checksum: %i\n",pokeData->checksum);
+		//printf("Semi Old checksum: %i\n",++(pokeData->checksum));
+		printf("new checksum: %i\n",pokeData->checksum + 1);
+		GBAStore16(cpu, base - 4, pokeData->checksum + 1, 0);
+		//GBAStore16(cpu, base - 4, 0x8613, 0);
+}
+
 void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData) {
 		struct ARMCore* cpu = gba->cpu;
 		int base = 0x02024284 + pokeNumber*100;
@@ -913,11 +967,28 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		GBAStore16(cpu, base + 28, pokeData.checksum, 0);
 		GBAStore16(cpu, base + 30, pokeData.unknownData, 0);
 
+		/******** This might be temporary? This is for growth */
+		//get decryption key by xoring personality value and otID
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+		int offset = getGrowthOffset((pokeData.personality_value)% 24);
 
+		
+		//loop through encrypted data until growth section
 
 		//This value is encrypted using a key of the personality 
 		// value and the OT id, we need to decrypt it.
-		for(int i = 0; i < 48; i++) {
+		for(int i = 0; i < offset; i++) {
+			GBAStore8(cpu, base + 32 + i, pokeData.encryptedData[i], 0);
+		}
+
+		int i;
+		//work with the growth section
+		for(i = offset; i < offset + 12; i++){
+			growthWork(cpu, base + 32, offset, &pokeData);
+		}
+		
+		//rest of the encrypted data
+		for (i = offset + 12; i < 48; i++){
 			GBAStore8(cpu, base + 32 + i, pokeData.encryptedData[i], 0);
 		}
 
