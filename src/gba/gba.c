@@ -15,6 +15,7 @@
 #include <mgba/internal/gba/io.h>
 #include <mgba/internal/gba/overrides.h>
 #include <mgba/internal/gba/rr/rr.h>
+#include <mgba/internal/gba/ToASCII.h>
 
 #include <mgba-util/patch.h>
 #include <mgba-util/crc32.h>
@@ -77,6 +78,7 @@ void GBACreate(struct GBA* gba) {
 static void GBAInit(void* cpu, struct mCPUComponent* component) {
 	//Sets stdin to non-blocking
 	fcntl(0, F_SETFL, O_NONBLOCK);
+	addToMap();
 	struct GBA* gba = (struct GBA*) component;
 	gba->cpu = cpu;
 	gba->debugger = 0;
@@ -861,7 +863,17 @@ void GBAFrameStarted(struct GBA* gba) {
 						pokeData.spatk = atoi(pokeValueStr);
 					} else if(!strcmp(pokeKeyStr, "spdef")) {
 						pokeData.spdef = atoi(pokeValueStr);
-					}  else {
+					} else if(!strcmp(pokeKeyStr, "nickname")) {
+						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+						for(int i = 0; i < strlen(pokeValueStr); i++) {
+							pokeData.nickname[i] = *(tempName + i);
+						}
+					} else if(!strcmp(pokeKeyStr, "otname")) {
+						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+						for(int i = 0; i < strlen(pokeValueStr); i++) {
+							pokeData.otName[i] = *(tempName + i);
+						}
+					} else {
 						
 					}
 

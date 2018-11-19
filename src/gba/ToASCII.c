@@ -2,40 +2,11 @@
 #include<stdbool.h>
 #include<stdlib.h>
 #include<string.h>
+#include<mgba/internal/gba/ToASCII.h>
 
 const int UPPER_ALPHA_OFFSET = -122;
 const int LOWER_ALPHA_OFFSET = -116;
 const int NUMERIC_OFFSET = -113;
-#define NUM_SPECIAL_CHAR 10
-
-struct Map {
-	unsigned char key;;
-	unsigned char value;
-};
-
-unsigned char *convert(unsigned char[], int, struct Map[]);
-unsigned char *revert(unsigned char[], int, struct Map[]);
-
-int addToMap();
-
-struct Map map[NUM_SPECIAL_CHAR];
-
-int main()
-{
-	int mapSize = addToMap();
-
-	unsigned char squirtle[] = {0xCD, 0xE5 ,0xE9, 0xDD, 0xe6, 0xCC, 0xCE, 0xC6, 0xBF, 0xA1, 0xAA, 0xAB};
-
-	printf("%s\n", squirtle);
-
-	unsigned char *new = convert(squirtle, strlen(squirtle), map);
-
-	printf("%s\n", new);
-
-	unsigned char *next = revert(new, strlen(new), map);
-
-	printf("%s\n", next);
-}
 
 unsigned char *convert(unsigned char en_string[], int length, struct Map map[])
 {
@@ -68,9 +39,9 @@ unsigned char *convert(unsigned char en_string[], int length, struct Map map[])
     }
     else if(special)
     {
-      for (int i = 0; i < 1 ; i++)
+      for (int j = 0; j < 1 ; j++)
       {
-     	if (c == map[i].key)
+     	if (c == map[j].key)
 	{
 		c = map[0].value;
 		break;	
@@ -86,7 +57,7 @@ unsigned char *convert(unsigned char en_string[], int length, struct Map map[])
   return ascii_string;
 }
 
-unsigned char *revert(unsigned char ascii_string[], int length, struct Map map[])
+unsigned char *revert( char ascii_string[], int length, struct Map map[])
 {
   unsigned char *encoded_string = malloc(length);
 
@@ -97,7 +68,7 @@ unsigned char *revert(unsigned char ascii_string[], int length, struct Map map[]
 
   for (int i = 0; i < length; i++)
   {
-    unsigned char c = ascii_string[i];
+    char c = ascii_string[i];
     upper_alpha = (c >= 65) && (c <= 90);
     lower_alpha = (c >= 97) && (c <= 122);
     numeric = (c >= 48) && (c <= 57);
@@ -117,9 +88,9 @@ unsigned char *revert(unsigned char ascii_string[], int length, struct Map map[]
     }
     else if(special)
     {
-      for (int i = 0; i < 1 ; i++)
+      for (int j = 0; j < 1 ; j++)
       {
-     	if (c == map[i].value)
+     	if (c == map[j].value)
 	{
 		c = map[0].key;
 		break;	
@@ -138,11 +109,11 @@ unsigned char *revert(unsigned char ascii_string[], int length, struct Map map[]
 int addToMap()
 {
 	int count = 0;
-	map[0].key = 0xAB;	//!
-	map[0].value = 0x21;
+	poke_char_map[0].key = 0xAB;	//!
+	poke_char_map[0].value = 0x21;
 	count++;
-	map[1].key = 0xAC;	//?
-	map[1].value = 0x3F;  
+	poke_char_map[1].key = 0xAC;	//?
+	poke_char_map[1].value = 0x3F;  
 	count++;
 
 	return count;

@@ -19,6 +19,7 @@ CXX_GUARD_START
 #include <mgba/internal/gba/sio.h>
 #include <mgba/internal/gba/timer.h>
 
+
 #define GBA_ARM7TDMI_FREQUENCY 0x1000000U
 
 enum GBAIRQ {
