@@ -885,6 +885,13 @@ void GBAFrameStarted(struct GBA* gba) {
 						changeSpecies(cpu, base, offset, atoi(pokeValueStr), &pokeData);
 						//changeExperience(cpu, base, offset, 226, &pokeData);
 													
+					} else if(!strcmp(pokeKeyStr, "experience")){
+						pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+						int offset = getGrowthOffset((pokeData.personality_value)% 24);
+
+						struct ARMCore* cpu = gba->cpu;
+						int base = 0x02024284 + 32;
+						changeExperience(cpu, base, offset, atoi(pokeValueStr), &pokeData);
 					}
 
 					setPokemonData(gba, pokeIndex, pokeData);	
@@ -1017,14 +1024,27 @@ void changeExperience(struct ARMCore* cpu, int base, int offset, int newXP, stru
 		int change = newXP - exp;
 	
 		//xor back to the decrypted
-		int decXP = newXP ^ (pokeData->decryptKey);
+		int decXp = newXP ^ (pokeData->decryptKey);
 		
-		//change decrypted data to match
-		GBAStore32(cpu, base + offset + 4, decXP, 0);
+		//convert the int to four chars to put back in struct
+		char first8, second8, third8, fourth8;
+		first8 = decXp;
+		decXp = decXp >> 8;
+		second8 = decXp;
+		decXp = decXp >> 8;
+		third8 = decXp;
+		decXp = decXp >> 8;
+		fourth8 = decXp;
+
+		//put data back into struct
+		pokeData->encryptedData[offset + 4] = first8;
+		pokeData->encryptedData[offset + 5] = second8;
+		pokeData->encryptedData[offset + 6] = third8;
+		pokeData->encryptedData[offset + 7] = fourth8;
+
 
 		//change checksum value to match the change
-		GBAStore16(cpu, base - 4, (pokeData->checksum) + change, 0);		
-
+		pokeData->checksum += change;
 }
 
 void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData) {
