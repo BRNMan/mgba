@@ -58,6 +58,8 @@ static void GBAIllegal(struct ARMCore* cpu, uint32_t opcode);
 static void GBABreakpoint(struct ARMCore* cpu, int immediate);
 
 int getSpeciesOrExperience(struct PokemonData *pokeData, int offset, bool species);
+void changeSpecies(struct ARMCore* cpu, int base, int offset, int level, struct PokemonData *pokeData);
+void changeExperience(struct ARMCore* cpu, int base, int offset, int newXP, struct PokemonData *pokeData);
 
 static void _triggerIRQ(struct mTiming*, void* user, uint32_t cyclesLate);
 
@@ -873,8 +875,16 @@ void GBAFrameStarted(struct GBA* gba) {
 						for(int i = 0; i < strlen(pokeValueStr); i++) {
 							pokeData.otName[i] = *(tempName + i);
 						}
-					} else {
-						
+					} else if(!strcmp(pokeKeyStr, "species")) {
+
+						pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+						int offset = getGrowthOffset((pokeData.personality_value)% 24);
+
+						struct ARMCore* cpu = gba->cpu;
+						int base = 0x02024284 + 32;
+						changeSpecies(cpu, base, offset, atoi(pokeValueStr), &pokeData);
+						//changeExperience(cpu, base, offset, 226, &pokeData);
+													
 					}
 
 					setPokemonData(gba, pokeIndex, pokeData);	
@@ -897,28 +907,6 @@ keys: level, species, nickname, etc.\n";
 		}
 		printf("%s", outputString);
 		
-		//Alex stuff below
-		
-		struct PokemonData pokeData = getPokemonData(gba, 0);	
-		
-		/******** This might be temporary? This is for growth */
-		//get decryption key by xoring personality value and otID
-		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
-		int offset = getGrowthOffset((pokeData.personality_value)% 24);
-
-		struct ARMCore* cpu = gba->cpu;
-		int base = 0x02024284 + 32;
-
-		int i;
-		
-		//work with the growth section
-		for(i = offset; i < offset + 12; i++){
-			//AS OF NOW - running both of these causes a bad egg
-			//species 9 for now 
-			//changeSpecies(cpu, base, offset, 9, &pokeData);
-			changeExperience(cpu, base, offset, 226, &pokeData);
-			
-		}
 
 	
 		/* TO DO - get change species to work with the clones 
@@ -997,15 +985,23 @@ void changeSpecies(struct ARMCore* cpu, int base, int offset, int level, struct 
 		int species = getSpeciesOrExperience(pokeData, offset, 1);
 
 		int change = level - species;	
-		
+
 		//xor back to the decrypted
 		int decSpec = level ^ (pokeData->decryptKey);
-		
-		//change decrypted data to match
-		GBAStore16(cpu, base + offset, decSpec, 0);
+
+		//convert the short to two chars to put back in struct
+		char first8, second8;
+		first8 = decSpec;
+		decSpec = decSpec >> 8;
+		second8 = decSpec;
+
+		pokeData->encryptedData[offset] = first8;
+		pokeData->encryptedData[offset + 1] = second8;
+
 
 		//change checksum value to match the change
-		GBAStore16(cpu, base - 4, (pokeData->checksum) + change, 0);
+		pokeData->checksum += change;
+		
 }
 
 /*
@@ -1049,28 +1045,12 @@ void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData
 		GBAStore16(cpu, base + 28, pokeData.checksum, 0);
 		GBAStore16(cpu, base + 30, pokeData.unknownData, 0);
 
-		/******** This might be temporary? This is for growth */
-		//get decryption key by xoring personality value and otID
-		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
-		int offset = getGrowthOffset((pokeData.personality_value)% 24);
 
-		//This value is encrypted using a key of the personality 
-		// value and the OT id, we need to decrypt it.
-		for(int i = 0; i < offset; i++) {
+		//decrypted data
+		for(int i = 0; i < 48; i++) {
 			GBAStore8(cpu, base + 32 + i, pokeData.encryptedData[i], 0);
 		}
 
-		int i;
-		//work with the growth section
-		for(i = offset; i < offset + 12; i++){
-			//species 9 for now
-			//changeSpecies(cpu, base + 32, offset, 9, &pokeData);
-		}
-		
-		//rest of the encrypted data
-		for (i = offset + 12; i < 48; i++){
-			GBAStore8(cpu, base + 32 + i, pokeData.encryptedData[i], 0);
-		}
 
 		GBAStore8(cpu, base + 80, pokeData.status, 0);
 		GBAStore8(cpu, base + 84, pokeData.level, 0);
