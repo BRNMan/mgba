@@ -1,3 +1,10 @@
+mGBA - FireRed Trainer Version
+====
+This project is an extension of the mGBA emulator that modifies the RAM values of Pokemon FireRed to change the stats of your Pokemon as the game is running.
+
+To run, follow the normal mGBA compilation instructions and run mgba-qt from terminal. 
+The terminal window accepts input commands to set and get pokemon stats.
+
 mGBA
 ====
 
