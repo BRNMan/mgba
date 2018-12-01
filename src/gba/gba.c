@@ -828,88 +828,52 @@ void GBAFrameStarted(struct GBA* gba) {
 			char *token;
 
 			token = strtok(buf, " \n");
-			if(!strcmp(token, "set")) {
-				char *pokeIndexStr = strtok(0, " \n");
-				char *pokeKeyStr = strtok(0, " \n");
-				char *pokeValueStr = strtok(0, " \n");
-				if(!strcmp(pokeIndexStr, "all")) {
-					struct PokemonData pokeData = getPokemonData(gba, 0);
-					for(int i = 0; i < 6; i++) {
-						setPokemonData(gba, i, pokeData);
-					}	
-				} else {
-					int pokeIndex = atoi(pokeIndexStr);
-					struct PokemonData pokeData = getPokemonData(gba, 0);
-					printf("%s, %s, %s, %s\n", token, pokeIndexStr, pokeKeyStr, pokeValueStr);	
-					if(!strcmp(pokeKeyStr, "language")) {
-						pokeData.language = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "markings")) {
-						pokeData.markings = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "status")) {
-						pokeData.status = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "level")) {
-						pokeData.level = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "pokerus")) {
-						pokeData.pokerusRemaining = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "curhp")) {
-						pokeData.curHP = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "totalhp")) {
-						pokeData.totalHP = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "attack")) {
-						pokeData.attack = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "defense")) {
-						pokeData.defense = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "speed")) {
-						pokeData.speed = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "spatk")) {
-						pokeData.spatk = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "spdef")) {
-						pokeData.spdef = atoi(pokeValueStr);
-					} else if(!strcmp(pokeKeyStr, "nickname")) {
-						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
-						for(int i = 0; i < strlen(pokeValueStr); i++) {
-							pokeData.nickname[i] = *(tempName + i);
+			if(token != NULL) {
+				if(!strcmp(token, "set")) {
+					char *pokeIndexStr = strtok(0, " \n");
+					if(pokeIndexStr != NULL) {
+						if(!strcmp(pokeIndexStr, "all")) {
+							struct PokemonData pokeData = getPokemonData(gba, 0);
+							for(int i = 0; i < 6; i++) {
+								setPokemonData(gba, i, pokeData);
+							}	
+						} else {
+							char *pokeKeyStr = strtok(0, " \n");
+							char *pokeValueStr = strtok(0, " \n");
+							if(pokeIndexStr != NULL && pokeKeyStr != NULL && pokeValueStr != NULL) {
+								setPokemonWithInputData(token, pokeIndexStr, pokeKeyStr, pokeValueStr, gba);
+							} else {
+								outputString = "Invalid command\n";
+							}
 						}
-					} else if(!strcmp(pokeKeyStr, "otname")) {
-						char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
-						for(int i = 0; i < strlen(pokeValueStr); i++) {
-							pokeData.otName[i] = *(tempName + i);
-						}
-					} else if(!strcmp(pokeKeyStr, "species")) {
-
-						pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
-						int offset = getGrowthOffset((pokeData.personality_value)% 24);
-
-						struct ARMCore* cpu = gba->cpu;
-						int base = 0x02024284 + 32;
-						changeSpecies(cpu, base, offset, atoi(pokeValueStr), &pokeData);
-						//changeExperience(cpu, base, offset, 226, &pokeData);
-													
-					} else if(!strcmp(pokeKeyStr, "experience")){
-						pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
-						int offset = getGrowthOffset((pokeData.personality_value)% 24);
-
-						struct ARMCore* cpu = gba->cpu;
-						int base = 0x02024284 + 32;
-						changeExperience(cpu, base, offset, atoi(pokeValueStr), &pokeData);
+					} else {
+						outputString = "Invalid command\n";
 					}
-
-					setPokemonData(gba, pokeIndex, pokeData);	
+				} else if (!strcmp(token,"get")) {
+					char *pokeIndexStr = strtok(0, " \n");
+					if(pokeIndexStr == NULL) {
+						pokeIndexStr = "all";
+					}
+					if(!strcmp(pokeIndexStr, "all")) {
+						for(int i = 0; i < 6; i++) {
+							struct PokemonData pokeData = getPokemonData(gba, i);
+							printPokemonData(pokeData, i);
+						}
+					}else
+					{
+						struct PokemonData pokeData = getPokemonData(gba, atoi(pokeIndexStr));
+						printPokemonData(pokeData, atoi(pokeIndexStr));
+					}
+				} else if (!strcmp(token, "help")) {
+					outputString = "Commands:\n\
+	get [pokemon_number]\n\
+	set [pokemon_number] [key] [value]\n\
+	help\n\
+	pokemon numbers (choose 1): all, 0, 1, 2, 3, 4, 5\n\
+	keys: level, species, nickname, etc.\n";
+				} else {
+					outputString = "Invalid command\n";
 				}
-			} else if (!strcmp(token,"get")) {
-				struct PokemonData pokeData = getPokemonData(gba, 0);
-				outputString = (char *)malloc(20*sizeof(char));
-				sprintf(outputString, "level: %d\n", pokeData.level);
-				//outputString = printPokemonData();
-			} else if (!strcmp(token, "help")) {
-				outputString = "Commands:\n\
-get [pokemon_number]\n\
-set [pokemon_number] [key] [value]\n\
-help\n\
-pokemon numbers (choose 1): all, 0, 1, 2, 3, 4, 5\n\
-keys: level, species, nickname, etc.\n";
-			} else {
-				outputString = "Invalid command\n";
 			}
 		}
 		printf("%s", outputString);
@@ -932,6 +896,102 @@ keys: level, species, nickname, etc.\n";
 			callbacks->videoFrameStarted(callbacks->context);
 		}
 	}
+}
+
+void printPokemonData(struct PokemonData pokeData, int index)
+{
+		char *tempName = convert(pokeData.nickname, strlen(pokeData.nickname), poke_char_map);
+		for(int i = 0; i < strlen(pokeData.nickname); i++) {
+			pokeData.nickname[i] = *(tempName + i);
+		}
+		printf("-------------------\n");
+		printf("Pokemon: %d\n", index);
+		printf("Nickname: %s\n", pokeData.nickname);
+		printf("\n--Combat Stats--\n");
+		printf("Level: %d\n", pokeData.level);
+		printf("Attack: %d\n", pokeData.attack);
+		printf("Special Attack: %d\n", pokeData.spatk);
+		printf("Defense: %d\n", pokeData.defense);
+		printf("Total Defense: %d\n", pokeData.spdef);
+		printf("Speed: %d\n", pokeData.speed);
+		printf("\n--Health--\n");
+		printf("Total HP: %d\n", pokeData.totalHP);
+		printf("Current HP: %d\n", pokeData.curHP);
+		printf("Status: %s\n", pokeData.status);
+}
+
+//Check if the entire struct is 0 or FF
+int checkPokemonIsEmpty(struct PokemonData pokeData) {
+	char result = 1;
+	char *structPointer = (char *)&pokeData;
+	for(int i = 0; i < 100; i++) {
+		result &= (structPointer[i] == 0 || structPointer[i] == 0xFFFFFFFF);
+	}
+	return result;
+}
+
+void setPokemonWithInputData(char *token, char *pokeIndexStr, char *pokeKeyStr, char *pokeValueStr, struct GBA* gba) {
+	int pokeIndex = atoi(pokeIndexStr);
+	struct PokemonData pokeData = getPokemonData(gba, 0);
+	//If the slot is empty, use pokemon 0 as the base for the new slot's pokemon. Else, use the regular slot index.
+	if(checkPokemonIsEmpty(pokeData)) {
+		pokeData = getPokemonData(gba, 0);
+	}
+	printf("%s, %s, %s, %s\n", token, pokeIndexStr, pokeKeyStr, pokeValueStr);	
+	if(!strcmp(pokeKeyStr, "language")) {
+		pokeData.language = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "markings")) {
+		pokeData.markings = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "status")) {
+		pokeData.status = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "level")) {
+		pokeData.level = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "pokerus")) {
+		pokeData.pokerusRemaining = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "curhp")) {
+		pokeData.curHP = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "totalhp")) {
+		pokeData.totalHP = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "attack")) {
+		pokeData.attack = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "defense")) {
+		pokeData.defense = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "speed")) {
+		pokeData.speed = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "spatk")) {
+		pokeData.spatk = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "spdef")) {
+		pokeData.spdef = atoi(pokeValueStr);
+	} else if(!strcmp(pokeKeyStr, "nickname")) {
+		char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+		for(int i = 0; i < strlen(pokeValueStr); i++) {
+			pokeData.nickname[i] = *(tempName + i);
+		}
+	} else if(!strcmp(pokeKeyStr, "otname")) {
+		char *tempName = revert(pokeValueStr, strlen(pokeValueStr), poke_char_map);
+		for(int i = 0; i < strlen(pokeValueStr); i++) {
+			pokeData.otName[i] = *(tempName + i);
+		}
+	} else if(!strcmp(pokeKeyStr, "species")) {
+
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+		int offset = getGrowthOffset((pokeData.personality_value)% 24);
+
+		struct ARMCore* cpu = gba->cpu;
+		int base = 0x02024284 + 32;
+		changeSpecies(cpu, base, offset, atoi(pokeValueStr), &pokeData);
+		//changeExperience(cpu, base, offset, 226, &pokeData);
+									
+	} else if(!strcmp(pokeKeyStr, "experience")){
+		pokeData.decryptKey = pokeData.personality_value ^ pokeData.ot_id;	
+		int offset = getGrowthOffset((pokeData.personality_value)% 24);
+
+		struct ARMCore* cpu = gba->cpu;
+		int base = 0x02024284 + 32;
+		changeExperience(cpu, base, offset, atoi(pokeValueStr), &pokeData);
+	}
+
+	setPokemonData(gba, pokeIndex, pokeData);	
 }
 
 

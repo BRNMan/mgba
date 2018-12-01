@@ -208,6 +208,9 @@ struct PokemonData {
 
 struct PokemonData getPokemonData(struct GBA* gba, int pokeNumber);
 void setPokemonData(struct GBA* gba, int pokeNumber, struct PokemonData pokeData);
+int checkPokemonIsEmpty(struct PokemonData pokeData);
+void setPokemonWithInputData(char *token, char *pokeIndexStr, char *pokeKeyStr, char *pokeValueStr, struct GBA* gba);
+void printPokemonData(struct PokemonData pokeData, int index);
 
 CXX_GUARD_END
 
